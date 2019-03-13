@@ -1,0 +1,110 @@
+{
+	"builders": [
+		{
+			"type": "googlecompute",
+			"account_file": "gcreds.json",
+			"project_id": "arctic-zoo-170322",
+			"source_image": "ubuntu-1604-xenial-v20181204",
+			"zone": "us-east1-b",
+			"ssh_username": "nomad",
+			"image_family": "nomad",
+			"instance_name": "nomad-{{uuid}}"
+		},
+		{
+			"type": "amazon-ebs",
+			"region": "us-east-1",
+			"source_ami": "ami-0f9cf087c1f27d9b1",
+			"instance_type": "t2.micro",
+			"ssh_username": "ubuntu",
+			"ami_name": "nomad-{{timestamp}}"
+		}
+	],
+	"provisioners": [
+		{
+			"type": "file",
+			"source": "consul/gcp-server.json",
+			"destination": "/tmp/consul-server.json",
+			"only": ["googlecompute"]
+		},
+		{
+			"type": "file",
+			"source": "consul/aws-server.json",
+			"destination": "/tmp/consul-server.json",
+			"only": ["amazon-ebs"]
+		},
+		{
+			"type": "file",
+			"source": "consul/gcp-client.json",
+			"destination": "/tmp/consul-client.json",
+			"only": ["googlecompute"]
+		},
+		{
+			"type": "file",
+			"source": "consul/aws-client.json",
+			"destination": "/tmp/consul-client.json",
+			"only": ["amazon-ebs"]
+		},
+		{
+			"type": "file",
+			"source": "consul/consul-server.service",
+			"destination": "/tmp/consul-server.service"
+		},
+		{
+			"type": "file",
+			"source": "consul/consul-client.service",
+			"destination": "/tmp/consul-client.service"
+		},
+		{
+			"type": "file",
+			"source": "nomad/server.hcl",
+			"destination": "/tmp/nomad-server.hcl"
+		},
+		{
+			"type": "file",
+			"source": "nomad/client.hcl",
+			"destination": "/tmp/nomad-client.hcl"
+		},
+		{
+			"type": "file",
+			"source": "nomad/nomad-server.service",
+			"destination": "/tmp/nomad-server.service"
+		},
+		{
+			"type": "file",
+			"source": "nomad/nomad-client.service",
+			"destination": "/tmp/nomad-client.service"
+		},
+		{
+			"type": "shell",
+			"inline": [
+				"sudo apt-get update",
+				"sudo apt-get install -y unzip apt-transport-https ca-certificates nfs-common curl software-properties-common",
+				"curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -",
+				"sudo add-apt-repository \"deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable\"",
+				"sudo apt-get update",
+				"sudo DEBIAN_FRONTEND=noninteractive apt-get -y -o DPkg::options::=\"--force-confdef\" -o DPkg::options::=\"--force-confold\"  install grub-pc",
+				"sudo apt-get install -y docker-ce",
+				"sudo usermod -aG docker ubuntu",
+				"curl https://releases.hashicorp.com/consul/1.4.0/consul_1.4.0_linux_amd64.zip -o /tmp/consul.zip -s",
+				"sudo unzip /tmp/consul.zip -d /usr/local/bin",
+				"sudo mkdir /etc/consul.d",
+				"sudo mkdir -p /opt/consul",
+				"sudo mv /tmp/consul-server.json /etc/consul.d/server.json",
+				"sudo mv /tmp/consul-client.json /etc/consul.d/client.json",
+				"sudo mv /tmp/consul-server.service /etc/systemd/system/consul-server.service",
+				"sudo mv /tmp/consul-client.service /etc/systemd/system/consul-client.service",
+
+				"curl https://releases.hashicorp.com/nomad/0.8.6/nomad_0.8.6_linux_amd64.zip -o /tmp/nomad.zip -s",
+				"sudo unzip /tmp/nomad.zip -d /usr/local/bin",
+				"sudo mkdir /etc/nomad.d",
+				"sudo mkdir -p /opt/nomad",
+				"sudo mv /tmp/nomad-server.hcl /etc/nomad.d/server.hcl",
+				"sudo mv /tmp/nomad-client.hcl /etc/nomad.d/client.hcl",
+				"sudo mv /tmp/nomad-server.service /etc/systemd/system/nomad-server.service",
+				"sudo mv /tmp/nomad-client.service /etc/systemd/system/nomad-client.service",
+
+				"sudo systemctl enable docker"
+			]
+		}
+	]
+}
